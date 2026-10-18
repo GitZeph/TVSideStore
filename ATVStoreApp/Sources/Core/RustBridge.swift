@@ -72,8 +72,8 @@ public actor RustBridge {
     public func fetchAnisetteHeaders() throws -> [String: String] {
         var res = atv_anisette_fetch_headers()
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
             throw RustBridgeError.decodingError("Invalid anisette headers JSON")
         }
         return dict
@@ -86,8 +86,8 @@ public actor RustBridge {
             }
         }
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid auth login JSON")
         }
         return dict
@@ -100,8 +100,8 @@ public actor RustBridge {
             }
         }
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid 2FA submission JSON")
         }
         return dict
@@ -112,8 +112,8 @@ public actor RustBridge {
     public func listTeams(sessionToken: String) throws -> [[String: Any]] {
         var res = sessionToken.withCString { atv_dev_list_teams($0) }
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        let data = Data(jsonStr.utf8)
+        guard let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             throw RustBridgeError.decodingError("Invalid teams list JSON")
         }
         return arr
@@ -135,8 +135,8 @@ public actor RustBridge {
             }
         }
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid app id registration JSON")
         }
         return dict
@@ -155,8 +155,8 @@ public actor RustBridge {
             }
         }
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid certificate provisioning JSON")
         }
         return dict
@@ -178,8 +178,8 @@ public actor RustBridge {
             }
         }
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid provisioning profile JSON")
         }
         return dict
@@ -232,8 +232,8 @@ public actor RustBridge {
         }
 
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid sign IPA JSON response")
         }
         return dict
@@ -245,12 +245,12 @@ public actor RustBridge {
         var res = host.withCString { cHost in
             pairingData.withUnsafeBytes { rawBuffer in
                 let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress!
-                return atv_device_check_connection(cHost, port, bytes, pairingData.count)
+                return atv_device_check_connection(cHost, port, bytes, UInt(pairingData.count))
             }
         }
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid device check JSON")
         }
         return dict
@@ -281,7 +281,7 @@ public actor RustBridge {
                             cHost,
                             port,
                             bytes,
-                            pairingData.count,
+                            UInt(pairingData.count),
                             cIPA,
                             cBundle,
                             context != nil ? cProgressBridge : nil,
@@ -293,8 +293,8 @@ public actor RustBridge {
         }
 
         let jsonStr = try unwrapResult(&res)
-        guard let data = jsonStr.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let data = Data(jsonStr.utf8)
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw RustBridgeError.decodingError("Invalid device install JSON")
         }
         return dict

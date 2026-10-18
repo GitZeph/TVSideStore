@@ -114,29 +114,44 @@ public final class TunnelMonitor: ObservableObject {
             let nwPort = NWEndpoint.Port(rawValue: port)!
             let connection = NWConnection(host: nwHost, port: nwPort, using: .tcp)
 
-            var hasResumed = false
+            final class State: @unchecked Sendable {
+                var hasResumed = false
+                let lock = NSLock()
+            }
+            let stateBox = State()
 
             connection.stateUpdateHandler = { state in
-                guard !hasResumed else { return }
+                stateBox.lock.lock()
+                guard !stateBox.hasResumed else {
+                    stateBox.lock.unlock()
+                    return
+                }
                 switch state {
                 case .ready:
-                    hasResumed = true
+                    stateBox.hasResumed = true
+                    stateBox.lock.unlock()
                     connection.cancel()
                     continuation.resume(returning: true)
                 case .failed, .cancelled:
-                    hasResumed = true
+                    stateBox.hasResumed = true
+                    stateBox.lock.unlock()
                     connection.cancel()
                     continuation.resume(returning: false)
                 case .waiting:
-                    // Timeout fallback
+                    stateBox.lock.unlock()
                     DispatchQueue.global().asyncAfter(deadline: .now() + 1.2) {
-                        guard !hasResumed else { return }
-                        hasResumed = true
+                        stateBox.lock.lock()
+                        guard !stateBox.hasResumed else {
+                            stateBox.lock.unlock()
+                            return
+                        }
+                        stateBox.hasResumed = true
+                        stateBox.lock.unlock()
                         connection.cancel()
                         continuation.resume(returning: false)
                     }
                 default:
-                    break
+                    stateBox.lock.unlock()
                 }
             }
 

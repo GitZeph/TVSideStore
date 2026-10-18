@@ -112,7 +112,7 @@ public struct WebUploadView: View {
                         .background(Color.black.opacity(0.6))
                         .cornerRadius(12)
                         .frame(maxHeight: 380)
-                        .onChange(of: webServer.logs.count) { _ in
+                        .onChange(of: webServer.logs.count) {
                             if let last = webServer.logs.indices.last {
                                 proxy.scrollTo(last, anchor: .bottom)
                             }

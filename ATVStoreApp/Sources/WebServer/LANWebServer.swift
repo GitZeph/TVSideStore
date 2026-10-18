@@ -76,12 +76,12 @@ public final class LANWebServer: ObservableObject {
 
     // MARK: - HTTP Connection & Request Routing
 
-    private func handleNewConnection(_ connection: NWConnection) {
+    nonisolated private func handleNewConnection(_ connection: NWConnection) {
         connection.start(queue: .global(qos: .userInitiated))
         readNextHTTPChunk(connection: connection, accumulatedData: Data())
     }
 
-    private func readNextHTTPChunk(connection: NWConnection, accumulatedData: Data) {
+    nonisolated private func readNextHTTPChunk(connection: NWConnection, accumulatedData: Data) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] content, _, isComplete, error in
             guard let self = self else { return }
             var buffer = accumulatedData

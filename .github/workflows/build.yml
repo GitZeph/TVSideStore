@@ -38,11 +38,10 @@ jobs:
 
       - name: Install Build Tools
         run: |
-          brew install xcodegen cmake cbindgen
+          brew install xcodegen cmake
 
-      - name: Generate C FFI Headers
+      - name: Prepare C FFI Headers
         run: |
-          (cd rust-core && cbindgen --config cbindgen.toml --output include/atv_store_core.h) || true
           cp cpp-signer/include/zsign_bridge.h rust-core/include/
 
       - name: Compile Rust Core for tvOS Device & Simulator
