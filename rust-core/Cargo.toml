@@ -1,0 +1,35 @@
+[package]
+name = "rust-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core engine for SideStoreTV (ATVStore): Apple GSA auth, dev portal, Mach-O resigning and lockdown bridge"
+
+[lib]
+name = "atv_store_core"
+crate-type = ["staticlib", "lib"]
+
+[dependencies]
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+plist = "1.7"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+sha1 = "0.10"
+sha2 = "0.10"
+aes = "0.8"
+base64 = "0.22"
+hex = "0.4"
+url = "2.5"
+chrono = { version = "0.4", features = ["serde"] }
+ureq = { version = "2.10", features = ["json"] }
+rsa = { version = "0.9", features = ["sha2"] }
+pkcs1 = { version = "0.7", features = ["pem"] }
+pkcs8 = { version = "0.10", features = ["pem"] }
+rand = "0.8"
+num-bigint = { version = "0.4", features = ["rand"] }
+num-traits = "0.2"
+tempfile = "3.12"
+walkdir = "2.5"
+
+[features]
+default = []

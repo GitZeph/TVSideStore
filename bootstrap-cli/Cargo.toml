@@ -1,0 +1,21 @@
+[package]
+name = "bootstrap-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Desktop CLI tool for one-time pairing and bootstrap deployment of SideStoreTV to Apple TV"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.12", features = ["json", "multipart"] }
+indicatif = "0.17"
+colored = "2.1"
+mdns-sd = "0.11"
+plist = "1.7"
+rpassword = "7.3"
+dialoguer = "0.11"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"

@@ -1,0 +1,118 @@
+name: Build SideStoreTV IPA (tvOS)
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ipa:
+    name: Build tvOS Application & IPA
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust Nightly (-Z build-std for Tier 3 tvOS)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Install Build Tools
+        run: |
+          brew install xcodegen cmake cbindgen
+
+      - name: Regenerate C FFI Headers
+        run: |
+          cbindgen --config rust-core/cbindgen.toml --crate rust-core --output rust-core/include/atv_store_core.h
+
+      - name: Compile Rust Core for tvOS Device (aarch64-apple-tvos)
+        run: |
+          cargo +nightly build -Z build-std=std,panic_abort --target aarch64-apple-tvos --release --manifest-path rust-core/Cargo.toml
+
+      - name: Compile Rust Core for tvOS Simulator (aarch64-apple-tvos-sim)
+        run: |
+          cargo +nightly build -Z build-std=std,panic_abort --target aarch64-apple-tvos-sim --release --manifest-path rust-core/Cargo.toml
+
+      - name: Compile C++ Signer for tvOS Device
+        run: |
+          mkdir -p cpp-signer/build-tvos
+          cmake -B cpp-signer/build-tvos -S cpp-signer \
+            -DCMAKE_SYSTEM_NAME=tvOS \
+            -DCMAKE_OSX_SYSROOT=appletvos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build cpp-signer/build-tvos --config Release
+
+      - name: Compile C++ Signer for tvOS Simulator
+        run: |
+          mkdir -p cpp-signer/build-sim
+          cmake -B cpp-signer/build-sim -S cpp-signer \
+            -DCMAKE_SYSTEM_NAME=tvOS \
+            -DCMAKE_OSX_SYSROOT=appletvsimulator \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build cpp-signer/build-sim --config Release
+
+      - name: Assemble ATVStoreCore.xcframework
+        run: |
+          mkdir -p target/combined-tvos target/combined-sim Frameworks
+          libtool -static -o target/combined-tvos/libATVStoreCore.a \
+            rust-core/target/aarch64-apple-tvos/release/libatv_store_core.a \
+            cpp-signer/build-tvos/libzsign_static.a
+          libtool -static -o target/combined-sim/libATVStoreCore.a \
+            rust-core/target/aarch64-apple-tvos-sim/release/libatv_store_core.a \
+            cpp-signer/build-sim/libzsign_static.a
+
+          xcodebuild -create-xcframework \
+            -library target/combined-tvos/libATVStoreCore.a -headers rust-core/include \
+            -library target/combined-sim/libATVStoreCore.a -headers rust-core/include \
+            -output Frameworks/ATVStoreCore.xcframework
+
+      - name: Generate Xcode Project via XcodeGen
+        run: |
+          cd ATVStoreApp && xcodegen generate
+
+      - name: Build ATVStore.app with xcodebuild
+        run: |
+          xcodebuild build \
+            -project ATVStoreApp/ATVStore.xcodeproj \
+            -scheme ATVStore \
+            -configuration Release \
+            -sdk appletvos \
+            -destination 'generic/platform=tvOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package ATVStore.ipa
+        run: |
+          mkdir -p build/Payload
+          cp -r build/DerivedData/Build/Products/Release-appletvos/ATVStore.app build/Payload/
+          cd build && zip -qr ../ATVStore.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ATVStore.ipa
+          path: ATVStore.ipa
+          if-no-files-found: error
+
+      - name: Create Release (on Tag or Manual Dispatch)
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ATVStore.ipa
+          tag_name: ${{ github.ref_name || 'v1.0.0' }}
+          name: "SideStoreTV ${{ github.ref_name || 'v1.0.0' }}"
+          body: "Automated production build of SideStoreTV (ATVStore) for Apple TV (tvOS 17+)."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
