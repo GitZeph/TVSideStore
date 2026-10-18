@@ -59,17 +59,8 @@ async fn run_gui_mode(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!("URL: {}", url.bold().cyan());
     println!("Apertura della finestra dell'applicazione in corso...\n");
 
-    // Launch standalone application window (Edge/Chrome app mode or default browser)
-    #[cfg(target_os = "windows")]
-    {
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", "start", "msedge", &format!("--app={}", url), "--new-window"])
-            .spawn();
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = std::process::Command::new("open").arg(&url).spawn();
-    }
+    // Launch standalone application window (Chrome / Edge app mode or default browser)
+    open_browser(&url);
 
     // Pre-check / auto-download latest IPA in background
     let ipa_path_clone = args.ipa_path.clone();
@@ -463,6 +454,49 @@ async fn send_json_response(socket: &mut tokio::net::TcpStream, status: u16, jso
         json
     );
     let _ = socket.write_all(response.as_bytes()).await;
+}
+
+fn open_browser(url: &str) {
+    #[cfg(target_os = "windows")]
+    {
+        let candidates = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+        ];
+
+        let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
+        let local_chrome = format!(r"{}\Google\Chrome\Application\chrome.exe", local_app_data);
+        let local_edge = format!(r"{}\Microsoft\Edge\Application\msedge.exe", local_app_data);
+        let local_brave = format!(r"{}\BraveSoftware\Brave-Browser\Application\brave.exe", local_app_data);
+
+        let mut launched = false;
+        for path in candidates.iter().map(|&s| s.to_string()).chain([local_chrome, local_edge, local_brave]) {
+            if Path::new(&path).exists() {
+                if std::process::Command::new(&path)
+                    .args([&format!("--app={}", url), "--new-window"])
+                    .spawn()
+                    .is_ok()
+                {
+                    launched = true;
+                    break;
+                }
+            }
+        }
+
+        // Fallback: standard system default browser via cmd start
+        if !launched {
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", "start", "", url])
+                .spawn();
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = std::process::Command::new("open").arg(url).spawn();
+    }
 }
 
 fn print_banner() {
