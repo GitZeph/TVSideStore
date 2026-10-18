@@ -245,7 +245,7 @@ public actor RustBridge {
         var res = host.withCString { cHost in
             pairingData.withUnsafeBytes { rawBuffer in
                 let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress!
-                return atv_device_check_connection(cHost, port, bytes, UInt(pairingData.count))
+                return atv_device_check_connection(cHost, port, bytes, Int(pairingData.count))
             }
         }
         let jsonStr = try unwrapResult(&res)
@@ -281,7 +281,7 @@ public actor RustBridge {
                             cHost,
                             port,
                             bytes,
-                            UInt(pairingData.count),
+                            Int(pairingData.count),
                             cIPA,
                             cBundle,
                             context != nil ? cProgressBridge : nil,
