@@ -20,6 +20,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Select Xcode Version
+        run: |
+          for app in /Applications/Xcode_16*.app /Applications/Xcode_15*.app; do
+            if [ -d "$app" ]; then
+              echo "Selecting $app"
+              sudo xcode-select -s "$app"
+              break
+            fi
+          done
+          xcodebuild -version
+
       - name: Setup Rust Nightly (-Z build-std for Tier 3 tvOS)
         uses: dtolnay/rust-toolchain@nightly
         with:
@@ -83,7 +94,12 @@ jobs:
 
       - name: Generate Xcode Project via XcodeGen
         run: |
-          cd ATVStoreApp && xcodegen generate
+          cd ATVStoreApp
+          xcodegen generate
+          # Safeguard: if objectVersion 77 was generated for Xcode 15 runner, adapt it
+          if [ -f ATVStore.xcodeproj/project.pbxproj ]; then
+            sed -i '' 's/objectVersion = 77;/objectVersion = 56;/g' ATVStore.xcodeproj/project.pbxproj || true
+          fi
 
       - name: Build ATVStore.app with xcodebuild
         run: |
@@ -96,7 +112,9 @@ jobs:
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO
 
       - name: Package ATVStore.ipa
         run: |

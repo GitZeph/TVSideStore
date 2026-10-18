@@ -4,6 +4,7 @@ options:
   deploymentTarget:
     tvOS: "17.0"
   xcodeVersion: "15.0"
+  projectFormat: xcode15_0
   createIntermediateGroups: true
 
 settings:
@@ -32,13 +33,16 @@ targets:
           - $(SRCROOT)/../cpp-signer/include
         FRAMEWORK_SEARCH_PATHS:
           - $(SRCROOT)/../Frameworks
+          - $(SRCROOT)/Frameworks
         OTHER_LDFLAGS:
           - -lz
+          - -lc++
     dependencies:
       - framework: ../Frameworks/ATVStoreCore.xcframework
-        embed: true
+        embed: false
       - sdk: Security.framework
       - sdk: Network.framework
       - sdk: CoreImage.framework
       - sdk: libz.tbd
+      - sdk: libc++.tbd
 
