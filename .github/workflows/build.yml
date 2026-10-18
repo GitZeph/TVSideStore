@@ -29,21 +29,20 @@ jobs:
         run: |
           brew install xcodegen cmake cbindgen
 
-      - name: Regenerate C FFI Headers
+      - name: Generate C FFI Headers
         run: |
-          cbindgen --config rust-core/cbindgen.toml --crate rust-core --output rust-core/include/atv_store_core.h
+          (cd rust-core && cbindgen --config cbindgen.toml --output include/atv_store_core.h) || true
+          cp cpp-signer/include/zsign_bridge.h rust-core/include/
 
-      - name: Compile Rust Core for tvOS Device (aarch64-apple-tvos)
+      - name: Compile Rust Core for tvOS Device & Simulator
         run: |
           cargo +nightly build -Z build-std=std,panic_abort --target aarch64-apple-tvos --release --manifest-path rust-core/Cargo.toml
-
-      - name: Compile Rust Core for tvOS Simulator (aarch64-apple-tvos-sim)
-        run: |
           cargo +nightly build -Z build-std=std,panic_abort --target aarch64-apple-tvos-sim --release --manifest-path rust-core/Cargo.toml
 
-      - name: Compile C++ Signer for tvOS Device
+      - name: Compile C++ Signer for tvOS Device & Simulator
         run: |
-          mkdir -p cpp-signer/build-tvos
+          mkdir -p cpp-signer/build-tvos cpp-signer/build-sim
+
           cmake -B cpp-signer/build-tvos -S cpp-signer \
             -DCMAKE_SYSTEM_NAME=tvOS \
             -DCMAKE_OSX_SYSROOT=appletvos \
@@ -51,9 +50,6 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build cpp-signer/build-tvos --config Release
 
-      - name: Compile C++ Signer for tvOS Simulator
-        run: |
-          mkdir -p cpp-signer/build-sim
           cmake -B cpp-signer/build-sim -S cpp-signer \
             -DCMAKE_SYSTEM_NAME=tvOS \
             -DCMAKE_OSX_SYSROOT=appletvsimulator \
@@ -63,18 +59,27 @@ jobs:
 
       - name: Assemble ATVStoreCore.xcframework
         run: |
-          mkdir -p target/combined-tvos target/combined-sim Frameworks
-          libtool -static -o target/combined-tvos/libATVStoreCore.a \
-            rust-core/target/aarch64-apple-tvos/release/libatv_store_core.a \
-            cpp-signer/build-tvos/libzsign_static.a
-          libtool -static -o target/combined-sim/libATVStoreCore.a \
-            rust-core/target/aarch64-apple-tvos-sim/release/libatv_store_core.a \
-            cpp-signer/build-sim/libzsign_static.a
+          mkdir -p build/combined-tvos build/combined-sim Frameworks ATVStoreApp/Frameworks
+
+          RUST_TVOS_LIB=$(find rust-core/target target -name "libatv_store_core.a" 2>/dev/null | grep "aarch64-apple-tvos/" | head -n 1)
+          RUST_SIM_LIB=$(find rust-core/target target -name "libatv_store_core.a" 2>/dev/null | grep "aarch64-apple-tvos-sim/" | head -n 1)
+          CPP_TVOS_LIB=$(find cpp-signer/build-tvos -name "libzsign_static.a" | head -n 1)
+          CPP_SIM_LIB=$(find cpp-signer/build-sim -name "libzsign_static.a" | head -n 1)
+
+          echo "Combining tvOS Device: $RUST_TVOS_LIB + $CPP_TVOS_LIB"
+          libtool -static -o build/combined-tvos/libATVStoreCore.a "$RUST_TVOS_LIB" "$CPP_TVOS_LIB"
+
+          echo "Combining tvOS Simulator: $RUST_SIM_LIB + $CPP_SIM_LIB"
+          libtool -static -o build/combined-sim/libATVStoreCore.a "$RUST_SIM_LIB" "$CPP_SIM_LIB"
+
+          rm -rf Frameworks/ATVStoreCore.xcframework ATVStoreApp/Frameworks/ATVStoreCore.xcframework
 
           xcodebuild -create-xcframework \
-            -library target/combined-tvos/libATVStoreCore.a -headers rust-core/include \
-            -library target/combined-sim/libATVStoreCore.a -headers rust-core/include \
+            -library build/combined-tvos/libATVStoreCore.a -headers rust-core/include \
+            -library build/combined-sim/libATVStoreCore.a -headers rust-core/include \
             -output Frameworks/ATVStoreCore.xcframework
+
+          cp -r Frameworks/ATVStoreCore.xcframework ATVStoreApp/Frameworks/
 
       - name: Generate Xcode Project via XcodeGen
         run: |
@@ -96,10 +101,14 @@ jobs:
       - name: Package ATVStore.ipa
         run: |
           mkdir -p build/Payload
-          cp -r build/DerivedData/Build/Products/Release-appletvos/ATVStore.app build/Payload/
+          APP_PATH=$(find build/DerivedData -name "ATVStore.app" -type d | head -n 1)
+          echo "Found compiled app at: $APP_PATH"
+          cp -r "$APP_PATH" build/Payload/
           cd build && zip -qr ../ATVStore.ipa Payload
+          cd ..
+          ls -la ATVStore.ipa
 
-      - name: Upload IPA Artifact
+      - name: Upload ATVStore.ipa Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ATVStore.ipa
