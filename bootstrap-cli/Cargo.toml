@@ -19,3 +19,4 @@ dialoguer = "0.11"
 sha2 = "0.10"
 hex = "0.4"
 base64 = "0.22"
+atv_store_core = { path = "../rust-core", package = "rust-core" }

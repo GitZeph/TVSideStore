@@ -57,18 +57,25 @@ pub fn get_anisette_url() -> String {
             return url.clone();
         }
     }
-    "https://anisette.sidestore.io".to_string()
+    "https://ani.sidestore.io/".to_string()
 }
 
 pub fn fetch_anisette_headers() -> Result<String, String> {
     let base_url = get_anisette_url();
-    let url = if base_url.ends_with('/') {
+    let url = if base_url.contains("ani.sidestore.io") {
+        if base_url.ends_with('/') {
+            base_url
+        } else {
+            format!("{}/", base_url)
+        }
+    } else if base_url.ends_with('/') {
         format!("{}v3/headers", base_url)
     } else {
         format!("{}/v3/headers", base_url)
     };
 
     let resp = ureq::get(&url)
+        .set("User-Agent", "SideStoreTV/1.0")
         .timeout(std::time::Duration::from_secs(10))
         .call();
 
